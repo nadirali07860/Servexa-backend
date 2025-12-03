@@ -1,0 +1,10 @@
+{
+  "name": "Rahul Sharma",
+  "email": "rahul@gmail.com",
+  "phone": "9876543210",
+  "password": "123456",
+  "skills": ["AC Repair", "Fridge Repair"],
+  "experience": "3 years",
+  "city": "Delhi",
+  "address": "Delhi, India"
+}
