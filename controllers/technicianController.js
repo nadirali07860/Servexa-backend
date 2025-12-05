@@ -1,77 +1,86 @@
 import Technician from "../models/technicianModel.js";
-import bcrypt from "bcryptjs";
 import generateToken from "../utils/generateToken.js";
 
+// Technician Register
 export const registerTechnician = async (req, res) => {
   try {
-    const { 
-      name,
-      email,
-      phone,
-      password,
-      skills,
-      experience,
-      city,
-      address
-    } = req.body;
+    const { name, phone, skill, password } = req.body;
 
-    // Check required fields
-    if (!name || !email || !phone || !password || !skills || !experience || !city || !address) {
-      return res.status(400).json({ message: "All fields are required" });
+    if (!name || !phone || !skill || !password) {
+      return res.status(400).json({ error: "All fields required" });
     }
 
-    // Check if technician already exists
     const exists = await Technician.findOne({ phone });
     if (exists) {
-      return res.status(400).json({ message: "Technician already exists" });
+      return res.status(400).json({ error: "Phone already registered" });
     }
 
-    // Hash password
-    const hashed = await bcrypt.hash(password, 10);
-
-    // Save technician
-    const tech = await Technician.create({
+    const newTech = new Technician({
       name,
-      email,
       phone,
-      password: hashed,
-      skills,
-      experience,
-      city,
-      address
+      skill,
+      password,
     });
 
-    res.json({
-      message: "Technician Registered",
-      technician: tech,
-    });
+    await newTech.save();
 
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: "Server Error", error });
+    res.json({ message: "Technician registered", technician: newTech });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 
+// Technician Login
 export const loginTechnician = async (req, res) => {
   try {
     const { phone, password } = req.body;
 
     const tech = await Technician.findOne({ phone });
-    if (!tech)
-      return res.status(400).json({ message: "Technician not found" });
 
-    const match = await bcrypt.compare(password, tech.password);
-    if (!match)
-      return res.status(400).json({ message: "Invalid Credentials" });
+    if (!tech) {
+      return res.status(404).json({ error: "Technician not found" });
+    }
+
+    if (tech.password !== password) {
+      return res.status(400).json({ error: "Wrong password" });
+    }
 
     res.json({
-      message: "Login Successful",
+      message: "Login successful",
       technician: tech,
       token: generateToken(tech._id),
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: "Server Error" });
+// Technician Profile
+export const getTechnicianProfile = async (req, res) => {
+  try {
+    const tech = await Technician.findById(req.user.id);
+
+    if (!tech) {
+      return res.status(404).json({ error: "Technician not found" });
+    }
+
+    res.json(tech);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Update Technician
+export const updateTechnician = async (req, res) => {
+  try {
+    const updated = await Technician.findByIdAndUpdate(
+      req.user.id,
+      req.body,
+      { new: true }
+    );
+
+    res.json({ message: "Profile updated", technician: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };

@@ -1,95 +1,79 @@
 import Job from "../models/jobModel.js";
+import Technician from "../models/technicianModel.js";
 import Booking from "../models/bookingModel.js";
 
-// Create Job
+// ---------------------------------------
+// 1. Create Job (After Booking)
+// ---------------------------------------
 export const createJob = async (req, res) => {
-  try {
-    const { bookingId, technicianId } = req.body;
+    try {
+        const { bookingId, technicianId } = req.body;
 
-    const job = await Job.create({
-      bookingId,
-      technicianId,
-      customerId: null,
-      status: "assigned",
-    });
+        const booking = await Booking.findById(bookingId);
+        if (!booking) return res.status(404).json({ message: "Booking not found" });
 
-    res.json({ message: "Job created", job });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+        const tech = await Technician.findById(technicianId);
+        if (!tech) return res.status(404).json({ message: "Technician not found" });
+
+        // ⭐ Fix: customerId added from booking
+        const customerId = booking.customer;
+
+        const job = await Job.create({
+            customerId: customerId,
+            technicianId: technicianId,
+            bookingId: bookingId,
+            status: "assigned",
+        });
+
+        res.json({ message: "Job Created", job });
+    } catch (error) {
+        res.status(500).json({ message: "Error creating job", error });
+    }
 };
 
-// Start Job
-export const startJob = async (req, res) => {
-  try {
-    const { jobId } = req.body;
+// ---------------------------------------
+// 2. Update Job Status
+// ---------------------------------------
+export const updateJobStatus = async (req, res) => {
+    try {
+        const { jobId, status } = req.body;
 
-    const job = await Job.findById(jobId);
-    if (!job) return res.status(404).json({ message: "Job not found" });
+        const allowed = ["in-progress", "completed", "cancelled"];
+        if (!allowed.includes(status)) {
+            return res.status(400).json({ message: "Invalid status" });
+        }
 
-    job.status = "in-progress";
-    job.startTime = new Date();
+        const job = await Job.findById(jobId);
+        if (!job) return res.status(404).json({ message: "Job not found" });
 
-    await job.save();
+        job.status = status;
+        await job.save();
 
-    res.json({ message: "Job started", job });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+        res.json({ message: "Status Updated", job });
+    } catch (error) {
+        res.status(500).json({ message: "Error updating job", error });
+    }
 };
 
-// Update Job
-export const updateJob = async (req, res) => {
-  try {
-    const { jobId, workNotes, partsUsed, estimatedAmount } = req.body;
-
-    const job = await Job.findById(jobId);
-    if (!job) return res.status(404).json({ message: "Job not found" });
-
-    job.workNotes = workNotes || job.workNotes;
-    job.partsUsed = partsUsed || job.partsUsed;
-    job.estimatedAmount = estimatedAmount || job.estimatedAmount;
-
-    await job.save();
-    res.json({ message: "Job updated", job });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// Complete Job
-export const completeJob = async (req, res) => {
-  try {
-    const { jobId, finalAmount } = req.body;
-
-    const job = await Job.findById(jobId);
-    if (!job) return res.status(404).json({ message: "Job not found" });
-
-    job.status = "completed";
-    job.endTime = new Date();
-    job.finalAmount = finalAmount;
-
-    await job.save();
-
-    res.json({ message: "Job completed", job });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// Technician Job List
-export const getJobsByTechnician = async (req, res) => {
+// ---------------------------------------
+// 3. All Jobs for Technician
+// ---------------------------------------
+export const getTechnicianJobs = async (req, res) => {
   try {
     const { techId } = req.params;
 
-    const jobs = await Job.find({ technicianId: techId });
+    const jobs = await Job.find({ technicianId: techId })
+      .populate("bookingId")
+      .populate("technicianId", "name phone skill");
 
     res.json(jobs);
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching jobs", error });
   }
+};
+
+export default {
+    createJob,
+    updateJobStatus,
+    getTechnicianJobs
 };

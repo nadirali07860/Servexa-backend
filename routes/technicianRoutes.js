@@ -1,34 +1,23 @@
 import express from "express";
-import Technician from "../models/technicianModel.js";
+import {
+  registerTechnician,
+  loginTechnician,
+  getTechnicianProfile,
+  updateTechnician
+} from "../controllers/technicianController.js";
 
 const router = express.Router();
 
-// Register technician
-router.post("/register", async (req, res) => {
-  try {
-    const { name, email, phone, skill, password } = req.body;
+// Technician Register
+router.post("/register", registerTechnician);
 
-    const tech = await Technician.create({ name, email, phone, skill, password });
+// Technician Login
+router.post("/login", loginTechnician);
 
-    res.json({ message: "Technician Registered", tech });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// Technician Profile
+router.get("/profile", getTechnicianProfile);
 
-// Get all technicians
-router.get("/all", async (req, res) => {
-  try {
-    const technicians = await Technician.find();
-
-    if (!technicians || technicians.length === 0) {
-      return res.json({ message: "No technicians found" });
-    }
-
-    res.json(technicians);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// Update Technician
+router.put("/update", updateTechnician);
 
 export default router;

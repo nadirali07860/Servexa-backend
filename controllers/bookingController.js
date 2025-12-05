@@ -1,69 +1,75 @@
-import Booking from "../models/bookingModel.js";
-import Technician from "../models/technicianModel.js";
+import Booking from "../models/Booking.js";
+import Technician from "../models/Technician.js";
+import Job from "../models/Job.js";
 
-// Create Booking
+// =========================
+// Create Booking (Customer)
+// =========================
 export const createBooking = async (req, res) => {
   try {
-    const { customerId, serviceType, address, slot } = req.body;
+    const booking = await Booking.create(req.body);
+    res.json({
+      message: "Booking Created",
+      booking,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Error creating booking", error });
+  }
+};
 
-    if (!customerId || !serviceType || !address || !slot) {
-      return res.status(400).json({ message: "Required fields missing" });
-    }
+// =========================
+// Approve Booking (Admin)
+// Auto Assign Technician + Create Job
+// =========================
+export const approveBooking = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking)
+      return res.status(404).json({ message: "Booking Not Found" });
 
-    const booking = await Booking.create({
-      customer: customerId,
-      serviceType,
-      address,
-      slot,
-      status: "pending",
+    // Find technician by skill
+    const tech = await Technician.findOne({ skill: booking.serviceType });
+    if (!tech)
+      return res.status(404).json({ message: "No Technician Available" });
+
+    // Approve booking
+    booking.status = "approved";
+    await booking.save();
+
+    // Create job auto
+    const job = await Job.create({
+      customerId: booking.customer,
+      technicianId: tech._id,
+      bookingId: booking._id,
+      status: "assigned",
     });
 
-    res.json({ message: "Booking created", booking });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// Assign Technician
-export const assignTechnician = async (req, res) => {
-  try {
-    const { bookingId, technicianId } = req.body;
-
-    const tech = await Technician.findById(technicianId);
-    if (!tech) return res.json({ message: "Technician not found" });
-
-    const booking = await Booking.findByIdAndUpdate(
-      bookingId,
-      { technician: technicianId, status: "assigned" },
-      { new: true }
-    );
-
-    res.json({ message: "Technician assigned", booking });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// Get Customer Bookings
-export const getCustomerBookings = async (req, res) => {
-  try {
-    const bookings = await Booking.find({
-      customer: req.params.customerId,
-    }).populate("technician");
-    res.json(bookings);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// Get Technician Bookings
-export const getTechnicianBookings = async (req, res) => {
-  try {
-    const bookings = await Booking.find({
-      technician: req.params.techId,
+    res.json({
+      message: "Booking Approved & Job Created",
+      booking,
+      technician: tech,
+      job,
     });
+
+  } catch (error) {
+    res.status(500).json({ message: "Error approving booking", error });
+  }
+};
+
+// =========================
+// Get bookings by customer
+// =========================
+export const getBookingsByCustomer = async (req, res) => {
+  try {
+    const bookings = await Booking.find({ customer: req.params.id })
+      .populate("technician")
+      .populate("customer");
+
     res.json(bookings);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching customer bookings",
+      error,
+    });
   }
 };

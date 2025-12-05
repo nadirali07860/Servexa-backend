@@ -1,16 +1,19 @@
 import express from "express";
-import {
+import { 
+  approveBooking,
   createBooking,
-  assignTechnician,
-  getCustomerBookings,
-  getTechnicianBookings
+  getBookingsByCustomer
 } from "../controllers/bookingController.js";
 
 const router = express.Router();
 
+// Create Booking
 router.post("/create", createBooking);
-router.post("/assign", assignTechnician);
-router.get("/customer/:customerId", getCustomerBookings);
-router.get("/technician/:techId", getTechnicianBookings);
+
+// Approve Booking
+router.post("/approve/:id", approveBooking);
+
+// Get Bookings by Customer
+router.get("/customer/:id", getBookingsByCustomer);
 
 export default router;
