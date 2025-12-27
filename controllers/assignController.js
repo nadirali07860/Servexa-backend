@@ -1,40 +1,34 @@
-import Technician from "../models/Technician.js";
-import Job from "../models/Job.js";
+const Job = require("../models/jobModel");
+const Technician = require("../models/Technician");
 
-export const autoAssignTechnician = async (req, res) => {
-  try {
-    const jobId = req.params.id;
+// Assign nearest/available technician (basic logic)
+const assignTechnician = async (req, res) => {
+    try {
+        const { jobId } = req.body;
 
-    // Job find karo
-    const job = await Job.findById(jobId);
-    if (!job) return res.status(404).json({ message: "Job not found" });
+        const job = await Job.findById(jobId);
+        if (!job) return res.status(404).json({ message: "Job not found" });
 
-    // Technician find → UrbanClap style
-    const tech = await Technician.findOne({
-      city: job.city,
-      skills: { $in: [job.serviceType] },
-      availability: true
-    }).sort({ activeJobs: 1 }); // kam load wala technician
+        // Find first available technician
+        const technician = await Technician.findOne({ status: "available" });
 
-    if (!tech)
-      return res.status(400).json({ message: "No Technician Available" });
+        if (!technician)
+            return res.status(400).json({ message: "No available technician" });
 
-    // Technician assign
-    job.technicianId = tech._id;
-    job.status = "Assigned";
-    await job.save();
+        job.technician = technician._id;
+        job.status = "assigned";
 
-    // Technician ka load update
-    tech.activeJobs += 1;
-    await tech.save();
+        await job.save();
 
-    res.json({
-      message: "Technician Assigned Successfully",
-      technician: tech,
-      job
-    });
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({ message: "Server Error" });
-  }
+        res.json({
+            message: "Technician assigned",
+            job,
+            technician
+        });
+
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
+
+module.exports = { assignTechnician };

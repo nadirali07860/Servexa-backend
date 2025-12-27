@@ -1,14 +1,27 @@
-import express from "express";
-import {
-  createJob,
-  updateJobStatus,
-  getTechnicianJobs,
-} from "../controllers/jobController.js";
-
+const express = require("express");
 const router = express.Router();
 
-router.post("/create", createJob);
-router.post("/update-status", updateJobStatus);
-router.get("/technician/:techId", getTechnicianJobs);
+const {
+  createJob,
+  getJobs,
+  getJobById,
+  technicianRespond,
+  updateJobStatus,
+} = require("../controllers/jobController");
 
-export default router;
+// Create new job
+router.post("/create", createJob);
+
+// Get all jobs
+router.get("/", getJobs);
+
+// Get single job
+router.get("/:id", getJobById);
+
+// Technician Accept / Reject
+router.post("/:id/tech-respond", technicianRespond);
+
+// Update job status
+router.patch("/:id/status", updateJobStatus);
+
+module.exports = router;

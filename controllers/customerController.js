@@ -1,69 +1,96 @@
-import Customer from "../models/customerModel.js";
-import bcrypt from "bcryptjs";
-import generateToken from "../utils/generateToken.js";
+const bcrypt = require("bcryptjs");
+const Customer = require("../models/customerModel");
+const generateToken = require("../utils/generateToken");
 
-// -------------------------
-// Register Customer
-// -------------------------
-export const registerCustomer = async (req, res) => {
+// REGISTER CUSTOMER
+exports.registerCustomer = async (req, res) => {
   try {
-    const { name, email, phone, password, address, city } = req.body;
+    const { name, phone, email, address, password } = req.body;
 
-    if (!name || !email || !phone || !password) {
-      return res.status(400).json({ message: "All fields are required" });
+    if (!name || !phone || !password) {
+      return res.status(400).json({
+        error: "Name, phone aur password required hai",
+      });
     }
 
-    const exists = await Customer.findOne({ phone });
-    if (exists) {
-      return res.status(400).json({ message: "Customer already exists" });
+    const existing = await Customer.findOne({ phone });
+    if (existing) {
+      return res.status(400).json({
+        error: "Ye phone pehle se registered hai",
+      });
     }
 
-    const hashed = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const customer = await Customer.create({
       name,
-      email,
       phone,
-      password: hashed,
+      email,
       address,
-      city,
+      password: hashedPassword,
     });
 
+    const token = generateToken(customer._id);
+
     res.json({
-      message: "Customer Registered",
-      customer,
-      token: generateToken(customer._id),
+      message: "Customer registered",
+      customer: {
+        id: customer._id,
+        name: customer.name,
+        phone: customer.phone,
+        email: customer.email,
+        address: customer.address,
+      },
+      token,
     });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: "Server Error" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 
-// -------------------------
-// Login Customer
-// -------------------------
-export const loginCustomer = async (req, res) => {
+// LOGIN CUSTOMER
+exports.loginCustomer = async (req, res) => {
   try {
     const { phone, password } = req.body;
 
     const customer = await Customer.findOne({ phone });
     if (!customer) {
-      return res.status(400).json({ message: "Customer not found" });
+      return res.status(400).json({ error: "User not found" });
     }
 
-    const match = await bcrypt.compare(password, customer.password);
-    if (!match) {
-      return res.status(400).json({ message: "Invalid Credentials" });
+    const isMatch = await bcrypt.compare(password, customer.password);
+    if (!isMatch) {
+      return res.status(400).json({ error: "Invalid password" });
     }
+
+    const token = generateToken(customer._id);
 
     res.json({
-      message: "Login Successful",
-      customer,
-      token: generateToken(customer._id),
+      message: "Login successful",
+      customer: {
+        id: customer._id,
+        name: customer.name,
+        phone: customer.phone,
+        email: customer.email,
+        address: customer.address,
+      },
+      token,
     });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: "Server Error" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// PROFILE (requires token)
+exports.getCustomerProfile = async (req, res) => {
+  try {
+    const customer = await Customer.findById(req.user.id).select("-password");
+    if (!customer) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ profile: customer });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };

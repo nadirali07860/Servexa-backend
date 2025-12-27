@@ -1,19 +1,10 @@
-import express from "express";
-import { 
-  approveBooking,
-  createBooking,
-  getBookingsByCustomer
-} from "../controllers/bookingController.js";
-
+const express = require("express");
 const router = express.Router();
 
-// Create Booking
-router.post("/create", createBooking);
+const { createBooking, getBookings } = require("../controllers/bookingController");
+const auth = require("../middleware/authMiddleware");
 
-// Approve Booking
-router.post("/approve/:id", approveBooking);
+router.post("/create", auth, createBooking);
+router.get("/my-bookings", auth, getBookings);
 
-// Get Bookings by Customer
-router.get("/customer/:id", getBookingsByCustomer);
-
-export default router;
+module.exports = router;

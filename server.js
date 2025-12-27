@@ -1,60 +1,59 @@
-import express from "express";
-import dotenv from "dotenv";
-import mongoose from "mongoose";
-import cors from "cors";
-
-import authRoutes from "./routes/authRoutes.js";
-import technicianRoutes from "./routes/technicianRoutes.js";
-import bookingRoutes from "./routes/bookingRoutes.js";
-import jobRoutes from "./routes/jobRoutes.js";
-import customerRoutes from "./routes/customerRoutes.js";
+const express = require("express");
+const dotenv = require("dotenv");
+const cors = require("cors");
+const connectDB = require("./config/db");
 
 dotenv.config();
 
 const app = express();
 
+// =======================
 // Middlewares
+// =======================
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// MongoDB Connect
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB Connected"))
-  .catch((err) => {
-    console.error("DB Error:", err.message || err);
-    process.exit(1);
-  });
+// =======================
+// Database Connection
+// =======================
+connectDB();
 
-// Basic Route
+// =======================
+// Health Check Route
+// =======================
 app.get("/", (req, res) => {
-  res.json({ message: "Server is up" });
-});
-
-// API Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/technicians", technicianRoutes);
-app.use("/api/bookings", bookingRoutes);
-app.use("/api/job", jobRoutes);
-app.use("/api/customer", customerRoutes);
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ message: "Not Found" });
-});
-
-// Error Handler
-app.use((err, req, res, next) => {
-  console.error("Unhandled Error:", err);
-  res.status(err.status || 500).json({
-    message: err.message || "Server Error",
+  res.json({
+    status: "OK",
+    message: "Servexa Backend is running 🚀",
   });
 });
 
-// Start Server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
-});
+// =======================
+// Routes
+// =======================
+const customerRoutes = require("./routes/customerRoutes");
+const technicianRoutes = require("./routes/technicianRoutes");
+const categoryRoutes = require("./routes/categoryRoutes");
+const serviceRoutes = require("./routes/serviceRoutes");
+const subServiceRoutes = require("./routes/subServiceRoutes");
+const jobRoutes = require("./routes/jobRoutes");
+
+// =======================
+// Mount Routes
+// =======================
+app.use("/api/customers", customerRoutes);
 app.use("/api/technicians", technicianRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/services", serviceRoutes);
+app.use("/api/subservices", subServiceRoutes);
+app.use("/api/jobs", jobRoutes);
+
+// =======================
+// Start Server
+// =======================
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+});

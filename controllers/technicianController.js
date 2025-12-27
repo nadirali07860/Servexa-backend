@@ -1,85 +1,53 @@
-import Technician from "../models/technicianModel.js";
-import generateToken from "../utils/generateToken.js";
+const Technician = require("../models/technicianModel");
+const bcrypt = require("bcryptjs");
+const generateToken = require("../utils/generateToken");
 
-// Technician Register
-export const registerTechnician = async (req, res) => {
+exports.registerTechnician = async (req, res) => {
   try {
     const { name, phone, skill, password } = req.body;
 
-    if (!name || !phone || !skill || !password) {
-      return res.status(400).json({ error: "All fields required" });
-    }
-
     const exists = await Technician.findOne({ phone });
-    if (exists) {
-      return res.status(400).json({ error: "Phone already registered" });
-    }
+    if (exists) return res.status(400).json({ error: "Phone already registered" });
 
-    const newTech = new Technician({
+    const hashed = await bcrypt.hash(password, 10);
+
+    const technician = await Technician.create({
       name,
       phone,
       skill,
-      password,
+      password: hashed
     });
 
-    await newTech.save();
-
-    res.json({ message: "Technician registered", technician: newTech });
+    res.json({ message: "Technician registered", technician });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-// Technician Login
-export const loginTechnician = async (req, res) => {
+exports.loginTechnician = async (req, res) => {
   try {
     const { phone, password } = req.body;
 
     const tech = await Technician.findOne({ phone });
+    if (!tech) return res.status(404).json({ error: "User not found" });
 
-    if (!tech) {
-      return res.status(404).json({ error: "Technician not found" });
-    }
-
-    if (tech.password !== password) {
-      return res.status(400).json({ error: "Wrong password" });
-    }
+    const match = await bcrypt.compare(password, tech.password);
+    if (!match) return res.status(400).json({ error: "Invalid password" });
 
     res.json({
       message: "Login successful",
       technician: tech,
-      token: generateToken(tech._id),
+      token: generateToken(tech._id)
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-// Technician Profile
-export const getTechnicianProfile = async (req, res) => {
+exports.getTechnicianProfile = async (req, res) => {
   try {
-    const tech = await Technician.findById(req.user.id);
-
-    if (!tech) {
-      return res.status(404).json({ error: "Technician not found" });
-    }
-
-    res.json(tech);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// Update Technician
-export const updateTechnician = async (req, res) => {
-  try {
-    const updated = await Technician.findByIdAndUpdate(
-      req.user.id,
-      req.body,
-      { new: true }
-    );
-
-    res.json({ message: "Profile updated", technician: updated });
+    const tech = await Technician.findById(req.user.id).select("-password");
+    res.json({ profile: tech });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -1,23 +1,65 @@
-import express from "express";
-import {
-  registerTechnician,
-  loginTechnician,
-  getTechnicianProfile,
-  updateTechnician
-} from "../controllers/technicianController.js";
-
+const express = require("express");
 const router = express.Router();
+const Technician = require("../models/technicianModel");
 
-// Technician Register
-router.post("/register", registerTechnician);
+// =========================
+// Create Technician
+// =========================
+router.post("/create", async (req, res) => {
+  try {
+    const tech = await Technician.create(req.body);
+    res.json({ message: "Technician created", tech });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-// Technician Login
-router.post("/login", loginTechnician);
+// =========================
+// Get All Technicians
+// =========================
+router.get("/", async (req, res) => {
+  try {
+    const technicians = await Technician.find();
+    res.json({ technicians });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-// Technician Profile
-router.get("/profile", getTechnicianProfile);
+// =========================
+// Update Technician (NEW)
+// =========================
+router.put("/update/:id", async (req, res) => {
+  try {
+    const tech = await Technician.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
 
-// Update Technician
-router.put("/update", updateTechnician);
+    if (!tech) {
+      return res.status(404).json({ error: "Technician not found" });
+    }
 
-export default router;
+    res.json({ message: "Technician updated", tech });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// =========================
+// Delete Technician (Optional)
+// =========================
+router.delete("/delete/:id", async (req, res) => {
+  try {
+    const tech = await Technician.findByIdAndDelete(req.params.id);
+    if (!tech) {
+      return res.status(404).json({ error: "Technician not found" });
+    }
+    res.json({ message: "Technician deleted" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;

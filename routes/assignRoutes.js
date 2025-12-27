@@ -1,9 +1,9 @@
-import express from "express";
-import { autoAssignTechnician } from "../controllers/assignController.js";
-
+const express = require("express");
 const router = express.Router();
 
-// UrbanClap-style auto assignment
-router.get("/auto-assign/:id", autoAssignTechnician);
+const { assignTechnician } = require("../controllers/assignController");
+const auth = require("../middleware/authMiddleware");
 
-export default router;
+router.post("/assign", auth, assignTechnician);
+
+module.exports = router;
