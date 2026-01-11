@@ -1,54 +1,40 @@
 const Technician = require("../models/technicianModel");
-const bcrypt = require("bcryptjs");
-const generateToken = require("../utils/generateToken");
 
-exports.registerTechnician = async (req, res) => {
+// ==========================
+// GET TECHNICIAN PROFILE
+// ==========================
+const getTechnicianProfile = async (req, res) => {
   try {
-    const { name, phone, skill, password } = req.body;
+    const technician = await Technician.findById(req.user._id).select("-password");
 
-    const exists = await Technician.findOne({ phone });
-    if (exists) return res.status(400).json({ error: "Phone already registered" });
+    if (!technician) {
+      return res.status(404).json({ message: "Technician not found" });
+    }
 
-    const hashed = await bcrypt.hash(password, 10);
-
-    const technician = await Technician.create({
-      name,
-      phone,
-      skill,
-      password: hashed
-    });
-
-    res.json({ message: "Technician registered", technician });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.json(technician);
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-exports.loginTechnician = async (req, res) => {
+// ==========================
+// UPDATE TECHNICIAN PROFILE
+// ==========================
+const updateTechnicianProfile = async (req, res) => {
   try {
-    const { phone, password } = req.body;
+    const technician = await Technician.findByIdAndUpdate(
+      req.user._id,
+      req.body,
+      { new: true }
+    ).select("-password");
 
-    const tech = await Technician.findOne({ phone });
-    if (!tech) return res.status(404).json({ error: "User not found" });
-
-    const match = await bcrypt.compare(password, tech.password);
-    if (!match) return res.status(400).json({ error: "Invalid password" });
-
-    res.json({
-      message: "Login successful",
-      technician: tech,
-      token: generateToken(tech._id)
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.json(technician);
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-exports.getTechnicianProfile = async (req, res) => {
-  try {
-    const tech = await Technician.findById(req.user.id).select("-password");
-    res.json({ profile: tech });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+module.exports = {
+  getTechnicianProfile,
+  updateTechnicianProfile,
 };

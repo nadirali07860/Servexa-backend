@@ -2,11 +2,23 @@ const mongoose = require("mongoose");
 
 const customerSchema = new mongoose.Schema(
   {
-    name:   { type: String, required: true },
-    phone:  { type: String, required: true, unique: true },
-    email:  { type: String },
-    address:{ type: String },
-    password:{ type: String, required: true }
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      unique: true
+    },
+    name: {
+      type: String
+    },
+    email: {
+      type: String
+    },
+    phone: {
+      type: String,
+      required: true,
+      unique: true
+    }
   },
   { timestamps: true }
 );

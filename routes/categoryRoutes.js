@@ -2,22 +2,16 @@ const express = require("express");
 const router = express.Router();
 
 const {
-  getCategories,
   createCategory,
-  updateCategory,
-  deleteCategory,
+  getCategories,
 } = require("../controllers/categoryController");
 
-// ✅ Get all categories
+const adminAuth = require("../middlewares/adminAuthMiddleware");
+
+// admin only
+router.post("/", adminAuth, createCategory);
+
+// public
 router.get("/", getCategories);
-
-// ✅ Create category (admin)
-router.post("/", createCategory);
-
-// ✅ Update category (admin)
-router.put("/:id", updateCategory);
-
-// ✅ Delete category (admin)
-router.delete("/:id", deleteCategory);
 
 module.exports = router;

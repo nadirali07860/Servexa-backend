@@ -1,9 +1,12 @@
 const express = require("express");
 const router = express.Router();
 
-const { assignTechnician } = require("../controllers/assignController");
-const auth = require("../middleware/authMiddleware");
+const auth = require("../middlewares/auth");
+const { autoAssignTechnician } = require("../controllers/assignController");
 
-router.post("/assign", auth, assignTechnician);
+// ==========================
+// ASSIGN ROUTES
+// ==========================
+router.post("/", auth("admin"), autoAssignTechnician);
 
 module.exports = router;

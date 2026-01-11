@@ -1,63 +1,98 @@
-import User from "../models/User.js";
-import jwt from "jsonwebtoken";
+const User = require("../models/user");
+const Technician = require("../models/technicianModel");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
-const generateToken = (user) => {
-  return jwt.sign(
-    { id: user._id, email: user.email, role: user.role },
-    process.env.JWT_SECRET,
-    { expiresIn: "7d" }
-  );
-};
-
-// REGISTER
-export const registerUser = async (req, res) => {
+/*
+|--------------------------------------------------------------------------
+| REGISTER (customer / technician / admin)
+|--------------------------------------------------------------------------
+*/
+exports.register = async (req, res) => {
   try {
-    const { name, email, role } = req.body;
+    const { name, phone, password, role } = req.body;
 
-    const exists = await User.findOne({ email });
-    if (exists) return res.status(400).json({ message: "User already exists" });
+    if (!phone || !password || !role) {
+      return res.status(400).json({ error: "Phone, password and role required" });
+    }
+
+    const exists = await User.findOne({ phone });
+    if (exists) {
+      return res.status(400).json({ error: "User already exists" });
+    }
+
+    // 🔐 ALWAYS hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
       name,
-      email,
-      role: role || "customer"
+      phone,
+      password: hashedPassword,
+      role,
+      isBlocked: false
     });
 
     res.json({
-      message: "User Registered",
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }
+      id: user._id,
+      name: user.name,
+      phone: user.phone,
+      role: user.role
     });
-  } catch (error) {
-    res.status(500).json({ message: "Server Error", error });
+  } catch (err) {
+    console.error("Register error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 };
 
-// LOGIN
-export const loginUser = async (req, res) => {
+/*
+|--------------------------------------------------------------------------
+| LOGIN (customer / technician / admin)
+|--------------------------------------------------------------------------
+*/
+exports.login = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { phone, password } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: "User not found" });
+    if (!phone || !password) {
+      return res.status(400).json({ error: "Phone and password required" });
+    }
 
-    const token = generateToken(user);
+    let user = await User.findOne({ phone });
+
+    // Technician fallback (if needed later)
+    if (!user) {
+      const technician = await Technician.findOne({ phone });
+      if (technician) {
+        user = technician;
+      }
+    }
+
+    if (!user) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({ error: "User is blocked by admin" });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
     res.json({
-      message: "Login Successful",
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }
+      role: user.role,
+      id: user._id
     });
-  } catch (error) {
-    res.status(500).json({ message: "Server Error", error });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 };

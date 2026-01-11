@@ -1,33 +1,43 @@
-const Service = require("../models/Service");
+const Service = require("../models/serviceModel");
+const Category = require("../models/categoryModel");
+const mongoose = require("mongoose");
 
-// Create a new main service
 exports.createService = async (req, res) => {
   try {
-    const { name, icon, description, price, categoryId } = req.body;
+    const { name, category, basePrice, discount } = req.body;
+
+    if (!name || !category || basePrice == null) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(category)) {
+      return res.status(400).json({ message: "Invalid category ID" });
+    }
+
+    const categoryDoc = await Category.findById(category);
+    if (!categoryDoc) {
+      return res.status(400).json({ message: "Category not found" });
+    }
+
+    const finalPrice =
+      discount && discount > 0
+        ? basePrice - (basePrice * discount) / 100
+        : basePrice;
 
     const service = await Service.create({
       name,
-      icon,
-      description,
-      price,
-      categoryId
+      category,
+      basePrice,
+      discount: discount || 0,
+      finalPrice,
     });
 
-    res.json({
-      message: "Service created",
+    res.status(201).json({
+      success: true,
       service,
     });
   } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-};
-
-// Get all main services
-exports.getServices = async (req, res) => {
-  try {
-    const services = await Service.find();
-    res.json({ services });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
   }
 };

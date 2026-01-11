@@ -1,37 +1,25 @@
+const Job = require("../models/jobModel");
 const Technician = require("../models/technicianModel");
 
-module.exports = async function autoAssign(job) {
-  try {
-    console.log("AUTO-ASSIGN STARTED...");
+exports.autoAssignJob = async (jobId) => {
+  const technician = await Technician.findOne({
+    isAvailable: true,
+  });
 
-    // Find technician
-    const tech = await Technician.findOne({
-      isOnline: true,
-      isAvailable: true,
-      dailyJobLimit: { $gt: 0 }
-    });
-
-    console.log("FOUND TECH:", tech ? tech._id : null);
-
-    if (!tech) {
-      return { assigned: false };
-    }
-
-    // Assign technician
-    job.technician = tech._id;
-    job.status = "auto-assigned";
-    await job.save();
-
-    // Update technician
-    tech.isAvailable = false;
-    tech.currentJob = job._id;
-    tech.dailyJobLimit -= 1;
-    await tech.save();
-
-    return { assigned: true, technician: tech };
-
-  } catch (err) {
-    console.error("AUTO-ASSIGN ERROR:", err);
-    return { assigned: false };
+  if (!technician) {
+    console.warn("⚠ No free technician available");
+    return;
   }
+
+  await Job.findByIdAndUpdate(jobId, {
+    technician: technician._id,
+    status: "assigned",
+  });
+
+  await Technician.findByIdAndUpdate(technician._id, {
+    isAvailable: false,
+    currentJob: jobId,
+  });
+
+  console.log("✅ Job auto-assigned to:", technician._id);
 };

@@ -1,39 +1,40 @@
-const Booking = require("../models/bookingModel");
 const Job = require("../models/jobModel");
 
-// Create booking
-const createBooking = async (req, res) => {
-    try {
-        const { jobId, technicianId } = req.body;
+exports.createBooking = async (req, res) => {
+  try {
+    const booking = req.body;
 
-        const booking = await Booking.create({
-            customer: req.user.id,
-            technician: technicianId,
-            job: jobId,
-        });
+    // Auto create job
+    const job = await Job.create({
+      booking: booking._id || null,
+      customer: booking.customer,
+      serviceType: booking.serviceType,
+      description: booking.description,
+      price: booking.price,
+      status: "pending"
+    });
 
-        res.json({ message: "Booking created", booking });
-
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    res.json({
+      message: "Booking created & Job generated",
+      job
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
 
-// Get all bookings of customer
-const getBookings = async (req, res) => {
-    try {
-        const data = await Booking.find({ customer: req.user.id })
-            .populate("technician")
-            .populate("job");
-
-        res.json(data);
-
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+exports.getAllBookings = async (req, res) => {
+  try {
+    res.json([]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
 
-module.exports = {
-    createBooking,
-    getBookings
+exports.getBookingById = async (req, res) => {
+  try {
+    res.json({ id: req.params.id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };

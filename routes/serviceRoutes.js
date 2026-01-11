@@ -1,14 +1,16 @@
 const express = require("express");
 const router = express.Router();
-const {
-  createService,
-  getServices
-} = require("../controllers/serviceController");
 
-// Create new service
-router.post("/create", createService);
+const auth = require("../middlewares/auth");
+const { createService } = require("../controllers/serviceController");
 
-// Get all services
-router.get("/", getServices);
+// ==============================
+// ADMIN → CREATE SERVICE
+// ==============================
+router.post(
+  "/",
+  auth("admin"),
+  createService
+);
 
 module.exports = router;

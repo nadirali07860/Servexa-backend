@@ -1,96 +1,82 @@
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const Customer = require("../models/customerModel");
-const generateToken = require("../utils/generateToken");
 
-// REGISTER CUSTOMER
+/**
+ * REGISTER CUSTOMER
+ */
 exports.registerCustomer = async (req, res) => {
   try {
-    const { name, phone, email, address, password } = req.body;
+    const { name, email, phone, password } = req.body;
 
-    if (!name || !phone || !password) {
-      return res.status(400).json({
-        error: "Name, phone aur password required hai",
-      });
+    if (!phone || !password) {
+      return res.status(400).json({ message: "Phone and password required" });
     }
 
     const existing = await Customer.findOne({ phone });
     if (existing) {
-      return res.status(400).json({
-        error: "Ye phone pehle se registered hai",
-      });
+      return res.status(400).json({ message: "Customer already exists" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const customer = await Customer.create({
       name,
-      phone,
       email,
-      address,
+      phone,
       password: hashedPassword,
     });
 
-    const token = generateToken(customer._id);
-
     res.json({
-      message: "Customer registered",
-      customer: {
-        id: customer._id,
-        name: customer.name,
-        phone: customer.phone,
-        email: customer.email,
-        address: customer.address,
-      },
-      token,
+      success: true,
+      message: "Customer registered successfully",
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("registerCustomer error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// LOGIN CUSTOMER
+/**
+ * LOGIN CUSTOMER (PHONE + PASSWORD)
+ */
 exports.loginCustomer = async (req, res) => {
   try {
     const { phone, password } = req.body;
 
+    if (!phone || !password) {
+      return res.status(400).json({ message: "Phone and password required" });
+    }
+
     const customer = await Customer.findOne({ phone });
+
     if (!customer) {
-      return res.status(400).json({ error: "User not found" });
+      return res.status(401).json({ message: "Customer not found" });
     }
 
     const isMatch = await bcrypt.compare(password, customer.password);
+
     if (!isMatch) {
-      return res.status(400).json({ error: "Invalid password" });
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const token = generateToken(customer._id);
+    const token = jwt.sign(
+      { id: customer._id, role: "customer" },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
     res.json({
-      message: "Login successful",
+      success: true,
+      token,
       customer: {
         id: customer._id,
         name: customer.name,
         phone: customer.phone,
-        email: customer.email,
-        address: customer.address,
       },
-      token,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// PROFILE (requires token)
-exports.getCustomerProfile = async (req, res) => {
-  try {
-    const customer = await Customer.findById(req.user.id).select("-password");
-    if (!customer) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    res.json({ profile: customer });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("loginCustomer error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };

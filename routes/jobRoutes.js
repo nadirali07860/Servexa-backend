@@ -1,27 +1,31 @@
 const express = require("express");
 const router = express.Router();
+const auth = require("../middlewares/auth");
+const jobController = require("../controllers/jobController");
 
-const {
-  createJob,
-  getJobs,
-  getJobById,
-  technicianRespond,
-  updateJobStatus,
-} = require("../controllers/jobController");
+// CUSTOMER
+router.post("/create", auth("customer"), jobController.createJob);
 
-// Create new job
-router.post("/create", createJob);
+// TECHNICIAN
+router.get("/my/technician", auth("technician"), jobController.getTechnicianJobs);
 
-// Get all jobs
-router.get("/", getJobs);
+// TECHNICIAN ACTIONS
+router.post(
+  "/:jobId/accept",
+  auth("technician"),
+  jobController.acceptJob
+);
 
-// Get single job
-router.get("/:id", getJobById);
+router.post(
+  "/:jobId/reject",
+  auth("technician"),
+  jobController.rejectJob
+);
 
-// Technician Accept / Reject
-router.post("/:id/tech-respond", technicianRespond);
-
-// Update job status
-router.patch("/:id/status", updateJobStatus);
+router.post(
+  "/:jobId/complete",
+  auth("technician"),
+  jobController.completeJob
+);
 
 module.exports = router;
