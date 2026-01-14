@@ -1,67 +1,91 @@
+const User = require("../models/user");
+const Customer = require("../models/customerModel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const Customer = require("../models/customerModel");
 
 /**
  * REGISTER CUSTOMER
  */
 exports.registerCustomer = async (req, res) => {
   try {
-    const { name, email, phone, password } = req.body;
+    const { name, phone, password } = req.body;
 
     if (!phone || !password) {
-      return res.status(400).json({ message: "Phone and password required" });
+      return res.status(400).json({
+        success: false,
+        message: "Phone and password required",
+      });
     }
 
-    const existing = await Customer.findOne({ phone });
-    if (existing) {
-      return res.status(400).json({ message: "Customer already exists" });
+    const existingUser = await User.findOne({ phone });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "User already exists",
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const customer = await Customer.create({
-      name,
-      email,
+    // 1️⃣ Create USER
+    const user = await User.create({
       phone,
       password: hashedPassword,
+      role: "customer",
     });
 
-    res.json({
+    // 2️⃣ Create CUSTOMER profile
+    await Customer.create({
+      user: user._id,
+      name,
+      phone,
+    });
+
+    res.status(201).json({
       success: true,
       message: "Customer registered successfully",
     });
-  } catch (err) {
-    console.error("registerCustomer error:", err);
-    res.status(500).json({ message: "Server error" });
+  } catch (error) {
+    console.error("registerCustomer error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };
 
 /**
- * LOGIN CUSTOMER (PHONE + PASSWORD)
+ * LOGIN CUSTOMER
  */
 exports.loginCustomer = async (req, res) => {
   try {
     const { phone, password } = req.body;
 
     if (!phone || !password) {
-      return res.status(400).json({ message: "Phone and password required" });
+      return res.status(400).json({
+        success: false,
+        message: "Phone and password required",
+      });
     }
 
-    const customer = await Customer.findOne({ phone });
-
-    if (!customer) {
-      return res.status(401).json({ message: "Customer not found" });
+    const user = await User.findOne({ phone, role: "customer" });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found",
+      });
     }
 
-    const isMatch = await bcrypt.compare(password, customer.password);
-
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
     }
 
     const token = jwt.sign(
-      { id: customer._id, role: "customer" },
+      { id: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -69,14 +93,12 @@ exports.loginCustomer = async (req, res) => {
     res.json({
       success: true,
       token,
-      customer: {
-        id: customer._id,
-        name: customer.name,
-        phone: customer.phone,
-      },
     });
-  } catch (err) {
-    console.error("loginCustomer error:", err);
-    res.status(500).json({ message: "Server error" });
+  } catch (error) {
+    console.error("loginCustomer error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };

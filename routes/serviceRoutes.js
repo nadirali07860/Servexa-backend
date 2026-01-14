@@ -1,15 +1,20 @@
 const express = require("express");
 const router = express.Router();
 
-const auth = require("../middlewares/auth");
-const { createService } = require("../controllers/serviceController");
+const {
+  createService,
+  getServicesByCategory,
+} = require("../controllers/serviceController");
 
-// ==============================
-// ADMIN → CREATE SERVICE
-// ==============================
+// 🔓 PUBLIC – customer can view services
+router.get(
+  "/category/:categoryId",
+  getServicesByCategory
+);
+
+// 🔐 ADMIN ONLY – create service
 router.post(
   "/",
-  auth("admin"),
   createService
 );
 

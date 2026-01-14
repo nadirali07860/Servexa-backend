@@ -1,20 +1,16 @@
 const express = require("express");
 const router = express.Router();
-
 const auth = require("../middlewares/auth");
 
-// ✅ correct controller import
-const {
-  getTechnicianProfile,
-  updateTechnicianProfile,
-} = require("../controllers/technicianController");
-
-// ==========================
-// TECHNICIAN ROUTES
-// ==========================
-
-// profile
-router.get("/profile", auth("technician"), getTechnicianProfile);
-router.put("/profile", auth("technician"), updateTechnicianProfile);
+// ✅ basic technician profile route
+router.get("/me", auth, (req, res) => {
+  res.json({
+    success: true,
+    technician: {
+      id: req.user.id,
+      role: req.user.role,
+    },
+  });
+});
 
 module.exports = router;

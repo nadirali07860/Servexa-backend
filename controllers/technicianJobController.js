@@ -1,81 +1,87 @@
 const Job = require("../models/jobModel");
-const Technician = require("../models/technicianModel");
 
-// =======================
-// ACCEPT JOB
-// =======================
-exports.acceptJob = async (req, res) => {
+// ✅ get assigned jobs
+exports.getAssignedJobs = async (req, res) => {
   try {
-    const technician = await Technician.findOne({ user: req.user._id });
+    const jobs = await Job.find({
+      technician: req.user.id,
+      status: { $in: ["pending", "accepted"] },
+    })
+      .populate("service", "name finalPrice")
+      .populate("customer", "name phone")
+      .sort({ createdAt: -1 });
 
-    if (!technician) {
-      return res.status(404).json({
-        success: false,
-        message: "Technician profile not found",
-      });
-    }
-
-    const job = await Job.findById(req.params.jobId);
-
-    if (!job) {
-  return res.status(200).json({
-    success: true,
-    job: null,
-  });
-}
-
-    job.technician = technician._id;
-    job.status = "assigned";
-    await job.save();
-
-    res.json({
-      success: true,
-      job,
-    });
+    return res.json({ success: true, jobs });
   } catch (err) {
-    console.error("Accept job error:", err);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+    console.error("GET ASSIGNED JOBS ERROR:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// =======================
-// COMPLETE JOB
-// =======================
-exports.completeJob = async (req, res) => {
+// ✅ accept job
+exports.acceptJob = async (req, res) => {
   try {
-    const technician = await Technician.findOne({ user: req.user._id });
-
-    if (!technician) {
-      return res.status(404).json({
-        success: false,
-        message: "Technician profile not found",
-      });
-    }
-
-    const job = await Job.findById(req.params.jobId);
+    const job = await Job.findOne({
+      _id: req.params.id,
+      technician: req.user.id,
+    });
 
     if (!job) {
-      return res.status(404).json({
-        success: false,
-        message: "Job not found",
-      });
+      return res.status(404).json({ success: false, message: "Job not found" });
+    }
+
+    job.status = "accepted";
+    await job.save();
+
+    res.json({ success: true, job });
+  } catch (err) {
+    console.error("ACCEPT JOB ERROR:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ✅ reject job
+exports.rejectJob = async (req, res) => {
+  try {
+    const job = await Job.findOne({
+      _id: req.params.id,
+      technician: req.user.id,
+    });
+
+    if (!job) {
+      return res.status(404).json({ success: false, message: "Job not found" });
+    }
+
+    job.technician = null;
+    job.status = "pending";
+    job.assignedAt = null;
+    await job.save();
+
+    res.json({ success: true, job });
+  } catch (err) {
+    console.error("REJECT JOB ERROR:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ✅ complete job
+exports.completeJob = async (req, res) => {
+  try {
+    const job = await Job.findOne({
+      _id: req.params.id,
+      technician: req.user.id,
+    });
+
+    if (!job) {
+      return res.status(404).json({ success: false, message: "Job not found" });
     }
 
     job.status = "completed";
     await job.save();
 
-    res.json({
-      success: true,
-      job,
-    });
+    res.json({ success: true, job });
   } catch (err) {
-    console.error("Complete job error:", err);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+    console.error("COMPLETE JOB ERROR:", err);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };

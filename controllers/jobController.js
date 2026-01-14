@@ -1,169 +1,123 @@
 const Job = require("../models/jobModel");
-const Technician = require("../models/technicianModel");
-const Customer = require("../models/customerModel");
 const Service = require("../models/serviceModel");
+const Technician = require("../models/technicianModel");
 
-/**
- * CUSTOMER → CREATE JOB
- */
+/*
+================================
+CREATE JOB (AUTO ASSIGN)
+================================
+*/
 exports.createJob = async (req, res) => {
   try {
-    const customer = await Customer.findOne({ user: req.user._id });
-    if (!customer) {
-      return res.status(404).json({ message: "Customer profile not found" });
+    const { service, address, note } = req.body;
+
+    if (!service || !address) {
+      return res.status(400).json({
+        success: false,
+        message: "Service and address required",
+      });
     }
 
-    const { serviceId, address, note } = req.body;
-
-    const service = await Service.findById(serviceId);
-    if (!service) {
-      return res.status(404).json({ message: "Service not found" });
+    // fetch service
+    const serviceDoc = await Service.findById(service);
+    if (!serviceDoc) {
+      return res.status(404).json({
+        success: false,
+        message: "Service not found",
+      });
     }
 
-    const job = await Job.create({
-      customer: customer._id,
-      service: service._id,
-      price: service.finalPrice,
-      address,
-      note,
-      status: "pending",
-    });
-
-    // AUTO ASSIGN
+    // 🔥 AUTO ASSIGN: first available technician
     const technician = await Technician.findOne({
-      isAvailable: true,
       isActive: true,
+      isAvailable: true,
     }).sort({ lastAssignedAt: 1 });
 
-    if (technician) {
-      job.technician = technician._id;
-      job.status = "assigned";
-      job.assignedAt = new Date();
-      await job.save();
+    const job = await Job.create({
+      customer: req.user.id,
+      technician: technician ? technician._id : null,
+      service: serviceDoc._id,
+      address,
+      note: note || "",
+      price: serviceDoc.finalPrice,
+      status: technician ? "assigned" : "pending",
+      assignedAt: technician ? new Date() : null,
+    });
 
+    // update technician status if assigned
+    if (technician) {
       technician.isAvailable = false;
-      technician.currentJob = job._id;
       technician.lastAssignedAt = new Date();
+      technician.currentJob = job._id;
       await technician.save();
     }
 
-    res.json({ success: true, job });
+    return res.status(201).json({
+      success: true,
+      job,
+    });
   } catch (err) {
     console.error("CREATE JOB ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };
 
-/**
- * TECHNICIAN → MY JOBS
- */
-exports.getTechnicianJobs = async (req, res) => {
+/*
+================================
+GET MY JOBS (CUSTOMER)
+================================
+*/
+exports.getMyJobs = async (req, res) => {
   try {
-    const technician = await Technician.findOne({ user: req.user._id });
-    if (!technician) {
-      return res.status(404).json({ message: "Technician profile not found" });
-    }
-
-    const jobs = await Job.find({ technician: technician._id })
-      .populate("customer")
+    const jobs = await Job.find({ customer: req.user.id })
+      .populate("service", "name finalPrice")
+      .populate("technician", "name phone")
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, jobs });
+    return res.json({
+      success: true,
+      count: jobs.length,
+      jobs,
+    });
   } catch (err) {
-    console.error("TECH JOB ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error("GET MY JOBS ERROR:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };
 
-/**
- * TECHNICIAN -> ACCEPT JOB
- */
-exports.acceptJob = async (req, res) => {
+/*
+================================
+GET SINGLE JOB BY ID
+================================
+*/
+exports.getJobById = async (req, res) => {
   try {
-    const technician = await Technician.findOne({ user: req.user._id });
-    if (!technician) {
-      return res.status(404).json({ message: "Technician not found" });
-    }
+    const job = await Job.findById(req.params.id)
+      .populate("service", "name finalPrice")
+      .populate("technician", "name phone");
 
-    const job = await Job.findById(req.params.jobId);
     if (!job) {
-  return res.status(200).json({
-    success: true,
-    job: null,
-  });
-}
-
-    if (String(job.technician) !== String(technician._id)) {
-      return res.status(403).json({ message: "Not your job" });
+      return res.status(404).json({
+        success: false,
+        message: "Job not found",
+      });
     }
 
-    job.status = "accepted";
-    await job.save();
-
-    res.json({ success: true, job });
+    return res.json({
+      success: true,
+      job,
+    });
   } catch (err) {
-    console.error("ACCEPT JOB ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error("GET JOB ERROR:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };
-
-/**
- * TECHNICIAN -> REJECT JOB
- */
-exports.rejectJob = async (req, res) => {
-  try {
-    const technician = await Technician.findOne({ user: req.user._id });
-    if (!technician) {
-      return res.status(404).json({ message: "Technician not found" });
-    }
-
-    const job = await Job.findById(req.params.jobId);
-    if (!job) {
-      return res.status(404).json({ message: "Job not found" });
-    }
-
-    job.rejectedBy.push(technician._id);
-    job.technician = null;
-    job.status = "pending";
-    await job.save();
-
-    technician.isAvailable = true;
-    technician.currentJob = null;
-    await technician.save();
-
-    res.json({ success: true, job });
-  } catch (err) {
-    console.error("REJECT JOB ERROR:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-/**
- * TECHNICIAN -> COMPLETE JOB
- */
-exports.completeJob = async (req, res) => {
-  try {
-    const technician = await Technician.findOne({ user: req.user._id });
-    if (!technician) {
-      return res.status(404).json({ message: "Technician not found" });
-    }
-
-    const job = await Job.findById(req.params.jobId);
-    if (!job) {
-      return res.status(404).json({ message: "Job not found" });
-    }
-
-    job.status = "completed";
-    await job.save();
-
-    technician.isAvailable = true;
-    technician.currentJob = null;
-    await technician.save();
-
-    res.json({ success: true, job });
-  } catch (err) {
-    console.error("COMPLETE JOB ERROR:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-

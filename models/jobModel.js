@@ -8,20 +8,36 @@ const jobSchema = new mongoose.Schema(
       required: true,
     },
 
+    service: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Service",
+      required: true,
+    },
+
     technician: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Technician",
       default: null,
     },
 
-    serviceType: String,
-    price: Number,
-    address: String,
-    notes: String,
+    price: {
+      type: Number,
+      required: true,
+    },
+
+    address: {
+      type: String,
+      required: true,
+    },
+
+    note: {
+      type: String,
+      default: "",
+    },
 
     status: {
       type: String,
-      enum: ["pending", "assigned", "accepted", "completed"],
+      enum: ["pending", "assigned", "accepted", "completed", "cancelled"],
       default: "pending",
     },
 
