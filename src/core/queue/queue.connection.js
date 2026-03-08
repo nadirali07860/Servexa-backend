@@ -1,12 +1,23 @@
-const IORedis = require('ioredis');
+const IORedis = require("ioredis");
 
-const connection = new IORedis({
+let connection = null;
 
-  host: process.env.REDIS_HOST || "127.0.0.1",
-  port: process.env.REDIS_PORT || 6379,
+if (process.env.REDIS_URL) {
 
-  maxRetriesPerRequest: null
+  connection = new IORedis(process.env.REDIS_URL);
 
-});
+  connection.on("connect", () => {
+    console.log("✅ Queue Redis connected");
+  });
+
+  connection.on("error", (err) => {
+    console.error("Queue Redis error:", err.message);
+  });
+
+} else {
+
+  console.warn("⚠️ Queue Redis disabled");
+
+}
 
 module.exports = connection;
