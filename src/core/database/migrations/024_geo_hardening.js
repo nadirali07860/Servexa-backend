@@ -2,7 +2,7 @@ const pool = require('../index');
 
 module.exports.up = async () => {
 
-  /* ---------- CREATE SOCIETIES TABLE SAFELY ---------- */
+  /* ---------- CREATE SOCIETIES TABLE ---------- */
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS societies (
@@ -14,19 +14,31 @@ module.exports.up = async () => {
     );
   `);
 
-  /* ---------- USERS CITY COLUMN ---------- */
+  /* ---------- USERS COLUMNS ---------- */
 
   await pool.query(`
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS city_id UUID;
   `);
 
-  /* ---------- USERS SOCIETY LINK ---------- */
-
   await pool.query(`
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS society_id UUID;
   `);
+
+  /* ---------- BOOKINGS COLUMNS ---------- */
+
+  await pool.query(`
+    ALTER TABLE bookings
+    ADD COLUMN IF NOT EXISTS city_id UUID;
+  `);
+
+  await pool.query(`
+    ALTER TABLE bookings
+    ADD COLUMN IF NOT EXISTS society_id UUID;
+  `);
+
+  /* ---------- FOREIGN KEY ---------- */
 
   await pool.query(`
     DO $$
