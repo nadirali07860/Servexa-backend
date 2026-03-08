@@ -14,6 +14,13 @@ module.exports.up = async () => {
     );
   `);
 
+  /* ---------- USERS CITY COLUMN ---------- */
+
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS city_id UUID;
+  `);
+
   /* ---------- USERS SOCIETY LINK ---------- */
 
   await pool.query(`
