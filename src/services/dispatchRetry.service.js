@@ -1,73 +1,49 @@
 const pool = require('../core/database');
-const logger = require('../core/logger');
+const { smartDispatch } = require('../modules/bookings/booking.smartDispatch.service');
 
-const MAX_RETRY = 5;
+async function retryDispatch(bookingId){
 
-async function dispatchNextTechnician(bookingId) {
+  const booking = await pool.query(
+    `SELECT * FROM bookings WHERE id=$1`,
+    [bookingId]
+  );
 
-  try {
+  if(!booking.rows.length) return;
 
-    const bookingRes = await pool.query(
-      `SELECT service_id, society_id, retry_count
-       FROM bookings
-       WHERE id = $1`,
-      [bookingId]
-    );
+  const b = booking.rows[0];
 
-    if (!bookingRes.rows.length) {
-      logger.error("Booking not found", { bookingId });
-      return;
+  const technicians = await smartDispatch(
+    b.service_id,
+    b.society_id,
+    0,
+    0
+  );
+
+  if(!technicians.length) return;
+
+  for(const tech of technicians){
+
+    if(tech !== b.technician_id){
+
+      await pool.query(`
+        UPDATE bookings
+        SET technician_id=$1,
+            status='ASSIGNED'
+        WHERE id=$2
+      `,[tech, bookingId]);
+
+      await pool.query(`
+        UPDATE technicians
+        SET active_bookings = active_bookings + 1
+        WHERE user_id=$1
+      `,[tech]);
+
+      break;
+
     }
-
-    const booking = bookingRes.rows[0];
-
-    if (booking.retry_count >= MAX_RETRY) {
-      logger.warn("Max dispatch retry reached", { bookingId });
-      return;
-    }
-
-    const techRes = await pool.query(
-      `SELECT id
-       FROM technicians
-       WHERE service_id = $1
-       AND society_id = $2
-       AND is_active = true
-       ORDER BY rating DESC
-       LIMIT 1`,
-      [booking.service_id, booking.society_id]
-    );
-
-    if (!techRes.rows.length) {
-      logger.warn("No technician available", { bookingId });
-      return;
-    }
-
-    const technicianId = techRes.rows[0].id;
-
-    await pool.query(
-      `UPDATE bookings
-       SET technician_id = $1,
-           retry_count = retry_count + 1
-       WHERE id = $2`,
-      [technicianId, bookingId]
-    );
-
-    logger.info("Technician reassigned", {
-      bookingId,
-      technicianId
-    });
-
-  } catch (error) {
-
-    logger.error("Dispatch retry failed", {
-      bookingId,
-      error: error.message
-    });
 
   }
 
 }
 
-module.exports = {
-  dispatchNextTechnician
-};
+module.exports = { retryDispatch };

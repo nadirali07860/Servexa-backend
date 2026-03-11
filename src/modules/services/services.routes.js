@@ -1,34 +1,41 @@
-const express = require('express');
-const router = express.Router();
+const express = require('express')
+const router = express.Router()
 
-const controller = require('./services.controller');
-const { authenticate, authorize } = require('../../shared/middlewares/auth.middleware');
+const pool = require('../../core/database')
 
-/* ================= ADMIN ROUTES ================= */
+/*
+GET SERVICES
+*/
 
-router.post(
-  '/category',
-  authenticate,
-  authorize('ADMIN'),
-  controller.createCategory
-);
+router.get('/',async(req,res)=>{
 
-router.post(
-  '/',
-  authenticate,
-  authorize('ADMIN'),
-  controller.createService
-);
+ const { rows } = await pool.query(
+ 'SELECT * FROM services ORDER BY name'
+ )
 
-router.put(
-  '/:id',
-  authenticate,
-  authorize('ADMIN'),
-  controller.updateService
-);
+ res.json({
+  success:true,
+  data:rows
+ })
 
-/* ================= PUBLIC ROUTES ================= */
+})
 
-router.get('/', controller.getServices);
+/*
+SERVICE DETAILS
+*/
 
-module.exports = router;
+router.get('/:id',async(req,res)=>{
+
+ const { rows } = await pool.query(
+ 'SELECT * FROM services WHERE id=$1',
+ [req.params.id]
+ )
+
+ res.json({
+  success:true,
+  data:rows[0]
+ })
+
+})
+
+module.exports = router

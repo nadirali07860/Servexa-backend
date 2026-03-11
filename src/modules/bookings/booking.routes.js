@@ -6,6 +6,7 @@ const requirePermission = require('../../shared/middlewares/permission.middlewar
 const validate = require('../../shared/middlewares/validate.middleware');
 
 const controller = require('./booking.controller');
+
 const {
   createBookingSchema,
   bookingIdSchema
@@ -49,6 +50,13 @@ router.post(
   requirePermission('reject_booking'),
   validate(bookingIdSchema),
   controller.rejectBooking
+);
+
+router.get(
+  '/',
+  authenticate,
+  requirePermission('manage_users'),
+  controller.getAllBookings
 );
 
 module.exports = router;

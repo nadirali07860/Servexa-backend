@@ -1,58 +1,101 @@
 const pool = require('../../core/database');
 
-async function smartDispatch(serviceId, societyId, customerLat, customerLng) {
+async function smartDispatch(serviceId, societyId, latitude, longitude) {
 
-  const result = await pool.query(
+  const { rows: technicians } = await pool.query(
+    `
+    SELECT
+      t.user_id,
+      t.active_bookings,
+      t.average_rating,
+      t.reputation_score,
+      l.latitude,
+      l.longitude,
 
-`
-SELECT
-t.user_id,
-t.active_bookings,
-t.rating,
-t.reputation_score,
-tl.latitude,
-tl.longitude,
+      (
+        6371 *
+        acos(
+          cos(radians($3)) *
+          cos(radians(l.latitude)) *
+          cos(radians(l.longitude) - radians($4)) +
+          sin(radians($3)) *
+          sin(radians(l.latitude))
+        )
+      ) AS distance
 
-(
-6371 * acos(
-cos(radians($3))
-* cos(radians(tl.latitude))
-* cos(radians(tl.longitude) - radians($4))
-+ sin(radians($3))
-* sin(radians(tl.latitude))
-)
-) AS distance
+    FROM technicians t
 
-FROM technicians t
+    JOIN technician_locations l
+    ON l.technician_id = t.user_id
 
-JOIN technician_services ts
-ON ts.technician_id = t.user_id
+    JOIN service_availability sa
+    ON sa.society_id = $2
 
-JOIN technician_locations tl
-ON tl.technician_id = t.user_id
+    WHERE sa.service_id = $1
+    AND sa.is_active = true
+    AND t.is_approved = true
+    AND t.is_online = true
+    AND t.status = 'AVAILABLE'
+    AND t.active_bookings < 2
+    `,
+    [serviceId, societyId, latitude, longitude]
+  );
 
-WHERE
-ts.service_id = $1
-AND t.status = 'AVAILABLE'
-AND t.is_online = true
+  if (!technicians.length) return [];
 
-ORDER BY
-distance ASC,
-t.active_bookings ASC,
-t.rating DESC
+  const ranked = technicians
+    .map(t => {
 
-LIMIT 1
+      const distanceScore = (t.distance || 0) * -0.35;
+      const ratingScore = (t.average_rating || 0) * 2;
+      const reputationScore = (t.reputation_score || 0) * 0.02;
+      const loadScore = (t.active_bookings || 0) * -1;
 
-`,
-[serviceId, societyId, customerLat, customerLng]
+      const score =
+        distanceScore +
+        ratingScore +
+        reputationScore +
+        loadScore;
 
-);
+      return {
+        ...t,
+        score,
+        distanceScore,
+        ratingScore,
+        reputationScore,
+        loadScore
+      };
 
-if (!result.rows.length) {
-return null;
-}
+    })
+    .sort((a,b) => b.score - a.score);
 
-return result.rows[0].user_id;
+  const topCandidates = ranked.slice(0,5);
+
+  /*
+  DISPATCH DECISION LOGGING
+  */
+
+  for (const tech of topCandidates) {
+
+    await pool.query(
+      `
+      INSERT INTO dispatch_decision_logs
+      (booking_id, technician_id, score, distance, rating, active_bookings, reason)
+      VALUES (NULL,$1,$2,$3,$4,$5,$6)
+      `,
+      [
+        tech.user_id,
+        tech.score,
+        tech.distance,
+        tech.average_rating,
+        tech.active_bookings,
+        'AUTO_DISPATCH_SCORING'
+      ]
+    );
+
+  }
+
+  return topCandidates.map(t => t.user_id);
 
 }
 

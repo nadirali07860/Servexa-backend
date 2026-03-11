@@ -1,9 +1,53 @@
-const express = require('express');
-const router = express.Router();
+const express = require('express')
+const router = express.Router()
+const pool = require('../../core/database')
 
-const controller = require('./notification.controller');
-const authenticate = require('../../shared/middlewares/auth.middleware');
+/*
+GET USER NOTIFICATIONS
+*/
 
-router.post('/send',authenticate,controller.send);
+router.get('/:userId', async(req,res)=>{
 
-module.exports = router;
+ const {userId} = req.params
+
+ const result = await pool.query(
+ `
+ SELECT *
+ FROM notifications
+ WHERE user_id=$1
+ ORDER BY created_at DESC
+ `,
+ [userId]
+ )
+
+ res.json({
+  success:true,
+  data:result.rows
+ })
+
+})
+
+/*
+MARK AS READ
+*/
+
+router.post('/read/:id', async(req,res)=>{
+
+ const {id} = req.params
+
+ await pool.query(
+ `
+ UPDATE notifications
+ SET is_read=true
+ WHERE id=$1
+ `,
+ [id]
+ )
+
+ res.json({
+  success:true
+ })
+
+})
+
+module.exports = router

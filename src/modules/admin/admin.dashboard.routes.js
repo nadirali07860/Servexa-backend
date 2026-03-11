@@ -1,15 +1,45 @@
 const express = require('express');
 const router = express.Router();
 
-const authenticate = require('../../core/middleware/authenticate');
-const requirePermission = require('../../shared/middlewares/permission.middleware');
-const controller = require('./admin.dashboard.controller');
+const pool = require('../../core/database');
 
-router.get(
-  '/dashboard',
-  authenticate,
-  requirePermission('manage_users'),
-  controller.getDashboard
-);
+/*
+ADMIN DASHBOARD STATS
+*/
+
+router.get('/dashboard', async (req, res) => {
+  try {
+
+    const bookings = await pool.query(
+      'SELECT COUNT(*) FROM bookings'
+    );
+
+    const customers = await pool.query(
+      "SELECT COUNT(*) FROM users WHERE role='customer'"
+    );
+
+    const technicians = await pool.query(
+      'SELECT COUNT(*) FROM technicians'
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        bookings: bookings.rows[0].count,
+        customers: customers.rows[0].count,
+        technicians: technicians.rows[0].count
+      }
+    });
+
+  } catch (error) {
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to load dashboard stats',
+      error: error.message
+    });
+
+  }
+});
 
 module.exports = router;
